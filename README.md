@@ -9,8 +9,6 @@ Recent advances in deep learning and computing needed to train deep learning mod
 
 Each of these follow a recurrent structure, which differs from other deep learning methods because they allow previous input values to influence later outputs.
 
-This repository contains information pertaining to the post [linked here](link_post_here), which shows how each of these methods performed in predicting stock prices for the year of 2017.
-
 ## Files
 
 Here we will tie together the following files:
