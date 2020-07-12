@@ -1,15 +1,15 @@
 '''
+Script to run time series models against all data in the \data folder.
 
+Author: @josh
 '''
 import os
-import math
 import numpy as np
 import pandas as pd
 from keras.optimizers import SGD
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, Dropout, GRU, Bidirectional, SimpleRNN
+from keras.layers import Dense, LSTM, Dropout, GRU, SimpleRNN
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_squared_error
 from fbprophet import Prophet
 
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ plt.style.use('fivethirtyeight')
 
 def create_files_dict(pth='./data/'):
     '''
-
+    create dictionary of files
     '''
     # pull all data files
     files = os.listdir(pth)
@@ -33,26 +33,27 @@ def create_files_dict(pth='./data/'):
 
         # read the data
         data = pd.read_csv(
-                          file_path,
-                          index_col='Date',
-                          parse_dates=['Date']
-                         )
+            file_path,
+            index_col='Date',
+            parse_dates=['Date']
+        )
 
         # store data in dictionary
         all_data[file_key] = data
 
     return all_data
 
+
 def plot_data(data, stock_name, pth='./figures/'):
     '''
-
+    plot the data
     '''
     # create train and test
-    data["High"][:'2016'].plot(figsize=(16,4),legend=True)
-    data["High"]['2017':].plot(figsize=(16,4),legend=True)
+    data["High"][:'2016'].plot(figsize=(16, 4), legend=True)
+    data["High"]['2017':].plot(figsize=(16, 4), legend=True)
 
     # plot the data
-    plt.legend(['Training set (Before 2017)','Test set (2017 and beyond)'])
+    plt.legend(['Training set (Before 2017)', 'Test set (2017 and beyond)'])
     plt.title('{} stock price'.format(stock_name))
     fig_path = os.path.join(pth, stock_name + '_train_test')
 
@@ -61,43 +62,47 @@ def plot_data(data, stock_name, pth='./figures/'):
     plt.pause(1)
     plt.close()
 
+
 def create_dl_train_test_split(all_data):
     '''
+    create training/testing data and scaler object
     '''
     # create training and test set
-    training_set = all_data[:'2016'].iloc[:,1:2].values
-    test_set = all_data['2017':].iloc[:,1:2].values
+    training_set = all_data[:'2016'].iloc[:, 1:2].values
+    test_set = all_data['2017':].iloc[:, 1:2].values
 
     # scale the data
-    sc = MinMaxScaler(feature_range=(0,1))
+    sc = MinMaxScaler(feature_range=(0, 1))
     training_set_scaled = sc.fit_transform(training_set)
 
     # create training and test data
     X_train = []
     y_train = []
-    for i in range(60,2768):
-        X_train.append(training_set_scaled[i-60:i,0])
-        y_train.append(training_set_scaled[i,0])
+    for i in range(60, 2768):
+        X_train.append(training_set_scaled[i - 60:i, 0])
+        y_train.append(training_set_scaled[i, 0])
 
     X_train, y_train = np.array(X_train), np.array(y_train)
 
     # Reshaping X_train for efficient modelling
-    X_train = np.reshape(X_train, (X_train.shape[0],X_train.shape[1],1))
+    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
 
-    total_data = pd.concat((all_data["High"][:'2016'], all_data["High"]['2017':]),axis=0)
-    inputs = total_data[len(total_data)-len(test_set) - 60:].values
-    inputs = inputs.reshape(-1,1)
-    inputs  = sc.transform(inputs)
+    total_data = pd.concat(
+        (all_data["High"][:'2016'], all_data["High"]['2017':]), axis=0)
+    inputs = total_data[len(total_data) - len(test_set) - 60:].values
+    inputs = inputs.reshape(-1, 1)
+    inputs = sc.transform(inputs)
 
     # Preparing X_test
     X_test = []
-    for i in range(60,311):
-        X_test.append(inputs[i-60:i,0])
+    for i in range(60, 311):
+        X_test.append(inputs[i - 60:i, 0])
 
     X_test = np.array(X_test)
-    X_test = np.reshape(X_test, (X_test.shape[0],X_test.shape[1],1))
+    X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
 
     return X_train, y_train, X_test, sc
+
 
 def create_single_layer_small_rnn_model(X_train, y_train, X_test, sc):
     '''
@@ -119,6 +124,7 @@ def create_single_layer_small_rnn_model(X_train, y_train, X_test, sc):
     test_preds = sc.inverse_transform(scaled_preds)
 
     return model, test_preds
+
 
 def create_single_layer_rnn_model(X_train, y_train, X_test, sc):
     '''
@@ -166,6 +172,7 @@ def create_rnn_model(X_train, y_train, X_test, sc):
 
     return model, test_preds
 
+
 def create_GRU_model(X_train, y_train, X_test, sc):
     '''
     create GRU model trained on X_train and y_train
@@ -174,22 +181,28 @@ def create_GRU_model(X_train, y_train, X_test, sc):
     # The GRU architecture
     regressorGRU = Sequential()
     # First GRU layer with Dropout regularisation
-    regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True,
+                         input_shape=(X_train.shape[1], 1), activation='tanh'))
     regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
     regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
     regressorGRU.add(GRU(units=50, activation='tanh'))
     regressorGRU.add(Dense(units=1))
 
     # Compiling the RNN
-    regressorGRU.compile(optimizer=SGD(lr=0.01, decay=1e-7, momentum=0.9, nesterov=False),loss='mean_squared_error')
+    regressorGRU.compile(
+        optimizer=SGD(
+            lr=0.01,
+            decay=1e-7,
+            momentum=0.9,
+            nesterov=False),
+        loss='mean_squared_error')
     # Fitting to the training set
-    regressorGRU.fit(X_train,y_train,epochs=50,batch_size=150)
+    regressorGRU.fit(X_train, y_train, epochs=50, batch_size=150)
 
     GRU_predicted_stock_price = regressorGRU.predict(X_test)
     GRU_predicted_stock_price = sc.inverse_transform(GRU_predicted_stock_price)
 
     return regressorGRU, GRU_predicted_stock_price
-
 
 
 def create_GRU_with_drop_out_model(X_train, y_train, X_test, sc):
@@ -200,7 +213,8 @@ def create_GRU_with_drop_out_model(X_train, y_train, X_test, sc):
     # The GRU architecture
     regressorGRU = Sequential()
     # First GRU layer with Dropout regularisation
-    regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True,
+                         input_shape=(X_train.shape[1], 1), activation='tanh'))
     regressorGRU.add(Dropout(0.2))
     # Second GRU layer
     regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
@@ -214,9 +228,15 @@ def create_GRU_with_drop_out_model(X_train, y_train, X_test, sc):
     # The output layer
     regressorGRU.add(Dense(units=1))
     # Compiling the RNN
-    regressorGRU.compile(optimizer=SGD(lr=0.01, decay=1e-7, momentum=0.9, nesterov=False),loss='mean_squared_error')
+    regressorGRU.compile(
+        optimizer=SGD(
+            lr=0.01,
+            decay=1e-7,
+            momentum=0.9,
+            nesterov=False),
+        loss='mean_squared_error')
     # Fitting to the training set
-    regressorGRU.fit(X_train,y_train,epochs=50,batch_size=150)
+    regressorGRU.fit(X_train, y_train, epochs=50, batch_size=150)
 
     GRU_predicted_stock_price = regressorGRU.predict(X_test)
     GRU_predicted_stock_price = sc.inverse_transform(GRU_predicted_stock_price)
@@ -245,6 +265,7 @@ def create_prophet_results(all_data,
 
     return forecast_prices
 
+
 def create_prophet_daily_results(data):
     '''
 
@@ -269,6 +290,7 @@ def create_prophet_daily_results(data):
 
     return test_results
 
+
 def plot_results(actuals,
                  stock_name,
                  small_one_layer_preds,
@@ -279,15 +301,17 @@ def plot_results(actuals,
                  gru_preds,
                  plot_pth='./figures'):
     '''
+    plot the results
     '''
-    plt.figure(figsize=(20,5))
-    plt.plot(yearly_prophet_preds.reset_index()['yhat'].values[-250:], label='prophet yearly predictions');
-    plt.plot(stock_data["High"]['2017':].values[:-1], label='actual values');
-    plt.plot(small_one_layer_preds, label='Single Layer Small RNN values');
-    plt.plot(one_layer_preds, label='Single Layer RNN values');
-    plt.plot(gru_drop_preds, label='GRU with dropout values');
-    plt.plot(rnn_preds, label='RNN values');
-    plt.plot(gru_preds, label='GRU values');
+    plt.figure(figsize=(20, 5))
+    plt.plot(yearly_prophet_preds.reset_index()[
+             'yhat'].values[-250:], label='prophet yearly predictions')
+    plt.plot(stock_data["High"]['2017':].values[:-1], label='actual values')
+    plt.plot(small_one_layer_preds, label='Single Layer Small RNN values')
+    plt.plot(one_layer_preds, label='Single Layer RNN values')
+    plt.plot(gru_drop_preds, label='GRU with dropout values')
+    plt.plot(rnn_preds, label='RNN values')
+    plt.plot(gru_preds, label='GRU values')
     plt.title('{} Predictions from Prophet vs. Actual'.format(stock_name))
     plt.legend()
 
@@ -297,6 +321,7 @@ def plot_results(actuals,
     plt.savefig(fig_path)
     plt.pause(1)
     plt.close()
+
 
 if __name__ == '__main__':
     all_data = create_files_dict()
@@ -308,10 +333,12 @@ if __name__ == '__main__':
         X_train, y_train, X_test, sc = create_dl_train_test_split(stock_data)
 
         # create small single layer small rnn preds
-        small_single_layer_rnn, small_one_layer_preds = create_single_layer_small_rnn_model(X_train, y_train, X_test, sc)
+        small_single_layer_rnn, small_one_layer_preds = create_single_layer_small_rnn_model(
+            X_train, y_train, X_test, sc)
 
         # create single layer rnn preds
-        single_layer_rnn, one_layer_preds = create_single_layer_rnn_model(X_train, y_train, X_test, sc)
+        single_layer_rnn, one_layer_preds = create_single_layer_rnn_model(
+            X_train, y_train, X_test, sc)
 
         # rnn daily preds
         rnn_model, rnn_preds = create_rnn_model(X_train, y_train, X_test, sc)
@@ -320,7 +347,8 @@ if __name__ == '__main__':
         gru_model, gru_preds = create_GRU_model(X_train, y_train, X_test, sc)
 
         # gru daily preds
-        gru_drop_model, gru_drop_preds = create_GRU_with_drop_out_model(X_train, y_train, X_test, sc)
+        gru_drop_model, gru_drop_preds = create_GRU_with_drop_out_model(
+            X_train, y_train, X_test, sc)
 
         # yearly preds
         yearly_preds = create_prophet_results(stock_data)
