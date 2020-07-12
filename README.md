@@ -68,4 +68,4 @@ The data and inspiration for this repository came [from Kaggle](https://www.kagg
 - [Siddharth Yadav's notebook](https://www.kaggle.com/thebrownviking20/intro-to-recurrent-neural-networks-lstm-gru)
 - [Kaggle's competition providing the data and inspiration](https://www.kaggle.com/szrlee/stock-time-series-20050101-to-20171231)
 - [Deep Learning with Python](https://tanthiamhuat.files.wordpress.com/2018/03/deeplearningwithpython.pdf)
-- [Corresponding Medium Post](medium post link here)
+- [Corresponding Medium Post](https://medium.com/@josh_2774/predicting-stock-prices-using-deep-learning-models-310b41cec90a)
