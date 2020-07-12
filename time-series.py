@@ -76,8 +76,9 @@ def create_dl_train_test_split(all_data):
     X_train = []
     y_train = []
     for i in range(60,2768):
-     X_train.append(training_set_scaled[i-60:i,0])
-     y_train.append(training_set_scaled[i,0])
+        X_train.append(training_set_scaled[i-60:i,0])
+        y_train.append(training_set_scaled[i,0])
+
     X_train, y_train = np.array(X_train), np.array(y_train)
 
     # Reshaping X_train for efficient modelling
@@ -91,16 +92,60 @@ def create_dl_train_test_split(all_data):
     # Preparing X_test
     X_test = []
     for i in range(60,311):
-     X_test.append(inputs[i-60:i,0])
+        X_test.append(inputs[i-60:i,0])
+
     X_test = np.array(X_test)
     X_test = np.reshape(X_test, (X_test.shape[0],X_test.shape[1],1))
 
     return X_train, y_train, X_test, sc
 
+def create_single_layer_small_rnn_model(X_train, y_train, X_test, sc):
+    '''
+    create single layer rnn model trained on X_train and y_train
+    and make predictions on the X_test data
+    '''
+    # create a model
+    model = Sequential()
+    model.add(SimpleRNN(6))
+    model.add(Dense(1))
+
+    model.compile(optimizer='rmsprop', loss='mean_squared_error')
+
+    # fit the RNN model
+    model.fit(X_train, y_train, epochs=100, batch_size=150)
+
+    # Finalizing predictions
+    scaled_preds = model.predict(X_test)
+    test_preds = sc.inverse_transform(scaled_preds)
+
+    return model, test_preds
+
+def create_single_layer_rnn_model(X_train, y_train, X_test, sc):
+    '''
+    create single layer rnn model trained on X_train and y_train
+    and make predictions on the X_test data
+    '''
+    # create a model
+    model = Sequential()
+    model.add(SimpleRNN(32))
+    model.add(Dense(1))
+
+    model.compile(optimizer='rmsprop', loss='mean_squared_error')
+
+    # fit the RNN model
+    model.fit(X_train, y_train, epochs=100, batch_size=150)
+
+    # Finalizing predictions
+    scaled_preds = model.predict(X_test)
+    test_preds = sc.inverse_transform(scaled_preds)
+
+    return model, test_preds
+
 
 def create_rnn_model(X_train, y_train, X_test, sc):
     '''
-
+    create rnn model trained on X_train and y_train
+    and make predictions on the X_test data
     '''
     # create a model
     model = Sequential()
@@ -121,41 +166,36 @@ def create_rnn_model(X_train, y_train, X_test, sc):
 
     return model, test_preds
 
-def create_LSTM_model(X_train, y_train, X_test, sc):
-    '''
-
-    '''
-    # The LSTM architecture
-    regressor = Sequential()
-    # First LSTM layer with Dropout regularisation
-    regressor.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1],1)))
-    regressor.add(Dropout(0.2))
-    # Second LSTM layer
-    regressor.add(LSTM(units=50, return_sequences=True))
-    regressor.add(Dropout(0.2))
-    # Third LSTM layer
-    regressor.add(LSTM(units=50, return_sequences=True))
-    regressor.add(Dropout(0.2))
-    # Fourth LSTM layer
-    regressor.add(LSTM(units=50))
-    regressor.add(Dropout(0.2))
-    # The output layer
-    regressor.add(Dense(units=1))
-
-    # Compiling the RNN
-    regressor.compile(optimizer='rmsprop',loss='mean_squared_error')
-    # Fitting to the training set
-    regressor.fit(X_train,y_train,epochs=50,batch_size=32)
-
-    predicted_stock_price = regressor.predict(X_test)
-    predicted_stock_price = sc.inverse_transform(predicted_stock_price)
-
-    return regressor, predicted_stock_price
-
-
 def create_GRU_model(X_train, y_train, X_test, sc):
     '''
+    create GRU model trained on X_train and y_train
+    and make predictions on the X_test data
+    '''
+    # The GRU architecture
+    regressorGRU = Sequential()
+    # First GRU layer with Dropout regularisation
+    regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
+    regressorGRU.add(GRU(units=50, activation='tanh'))
+    regressorGRU.add(Dense(units=1))
 
+    # Compiling the RNN
+    regressorGRU.compile(optimizer=SGD(lr=0.01, decay=1e-7, momentum=0.9, nesterov=False),loss='mean_squared_error')
+    # Fitting to the training set
+    regressorGRU.fit(X_train,y_train,epochs=50,batch_size=150)
+
+    GRU_predicted_stock_price = regressorGRU.predict(X_test)
+    GRU_predicted_stock_price = sc.inverse_transform(GRU_predicted_stock_price)
+
+    return regressorGRU, GRU_predicted_stock_price
+
+
+
+def create_GRU_with_drop_out_model(X_train, y_train, X_test, sc):
+    '''
+    create GRU model trained on X_train and y_train
+    and make predictions on the X_test data
     '''
     # The GRU architecture
     regressorGRU = Sequential()
@@ -163,10 +203,10 @@ def create_GRU_model(X_train, y_train, X_test, sc):
     regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
     regressorGRU.add(Dropout(0.2))
     # Second GRU layer
-    regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
     regressorGRU.add(Dropout(0.2))
     # Third GRU layer
-    regressorGRU.add(GRU(units=50, return_sequences=True, input_shape=(X_train.shape[1],1), activation='tanh'))
+    regressorGRU.add(GRU(units=50, return_sequences=True, activation='tanh'))
     regressorGRU.add(Dropout(0.2))
     # Fourth GRU layer
     regressorGRU.add(GRU(units=50, activation='tanh'))
@@ -188,7 +228,8 @@ def create_prophet_results(all_data,
                            final_train_idx=2768,
                            pred_periods=250):
     '''
-
+    create prophet model trained on first 2768 rows by
+    default and predicts on last 250 rows
     '''
     # Pull train data
     train_data = all_data[:final_train_idx].reset_index()[['Date', 'High']]
@@ -230,8 +271,10 @@ def create_prophet_daily_results(data):
 
 def plot_results(actuals,
                  stock_name,
+                 small_one_layer_preds,
+                 one_layer_preds,
                  yearly_prophet_preds,
-                 lstm_preds,
+                 gru_drop_preds,
                  rnn_preds,
                  gru_preds,
                  plot_pth='./figures'):
@@ -240,7 +283,9 @@ def plot_results(actuals,
     plt.figure(figsize=(20,5))
     plt.plot(yearly_prophet_preds.reset_index()['yhat'].values[-250:], label='prophet yearly predictions');
     plt.plot(stock_data["High"]['2017':].values[:-1], label='actual values');
-    plt.plot(lstm_preds, label='LSTM values');
+    plt.plot(small_one_layer_preds, label='Single Layer Small RNN values');
+    plt.plot(one_layer_preds, label='Single Layer RNN values');
+    plt.plot(gru_drop_preds, label='GRU with dropout values');
     plt.plot(rnn_preds, label='RNN values');
     plt.plot(gru_preds, label='GRU values');
     plt.title('{} Predictions from Prophet vs. Actual'.format(stock_name))
@@ -262,6 +307,12 @@ if __name__ == '__main__':
         # create dl data
         X_train, y_train, X_test, sc = create_dl_train_test_split(stock_data)
 
+        # create small single layer small rnn preds
+        small_single_layer_rnn, small_one_layer_preds = create_single_layer_small_rnn_model(X_train, y_train, X_test, sc)
+
+        # create single layer rnn preds
+        single_layer_rnn, one_layer_preds = create_single_layer_rnn_model(X_train, y_train, X_test, sc)
+
         # rnn daily preds
         rnn_model, rnn_preds = create_rnn_model(X_train, y_train, X_test, sc)
 
@@ -269,7 +320,7 @@ if __name__ == '__main__':
         gru_model, gru_preds = create_GRU_model(X_train, y_train, X_test, sc)
 
         # gru daily preds
-        lstm_model, lstm_preds = create_LSTM_model(X_train, y_train, X_test, sc)
+        gru_drop_model, gru_drop_preds = create_GRU_with_drop_out_model(X_train, y_train, X_test, sc)
 
         # yearly preds
         yearly_preds = create_prophet_results(stock_data)
@@ -280,7 +331,9 @@ if __name__ == '__main__':
         # plot results
         plot_results(stock_data,
                      stock_name,
+                     small_one_layer_preds,
+                     one_layer_preds,
                      yearly_preds,
-                     lstm_preds,
+                     gru_drop_preds,
                      rnn_preds,
                      gru_preds)
